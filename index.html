@@ -173,7 +173,6 @@
             </div>
           </div>
           
-          <!-- Espace réservé épuré (sans boutons superflus) -->
           <div class="pt-3 border-t border-slate-800 text-center">
             <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Pilote Automatique Séquentiel</span>
           </div>
@@ -438,7 +437,7 @@
           score: 0,
           blocksLeft: 2,
           blockedHistory: {},
-          blockedForTourCount: 0,
+          blockedForTourCount: 0, // Nombre de fois bloqué d'affilée
           blockedTargetQuestionIndex: -1,
           wrongAnswerQuestionIndex: -1,
           isBlockedThisTour: false
@@ -728,7 +727,7 @@
       }
     }
 
-    // Action d'envoi d'un BLOCK ciblant la question suivante
+    // Action d'envoi d'un BLOCK (Gestion de l'immunité d'un tour après 2 blocs subis de suite)
     function sendPlayerBlock() {
       const targetId = document.getElementById('block-target-select').value;
       if (!targetId) { alert("Veuillez sélectionner un joueur à bloquer."); return; }
@@ -751,14 +750,25 @@
         return;
       }
 
+      const currentQ = roomData.currentQIndex || 0;
       const targetBlockedForTourCount = targetPlayer.blockedForTourCount || 0;
-      if (targetBlockedForTourCount >= 2) {
-        alert(`${targetPlayer.name} a été bloqué pendant 2 tours consécutifs et est temporairement immunisé !`);
+      const lastBlockedQuestion = targetPlayer.lastBlockedQuestionIndex !== undefined ? targetPlayer.lastBlockedQuestionIndex : -99;
+
+      // Si le joueur a été bloqué au tour précédent (consécutif) et totalise 2 blocs d'affilée -> Immunité pour 1 tour (la question suivante)
+      if (targetBlockedForTourCount >= 2 && lastBlockedQuestion === currentQ - 1) {
+        alert(`${targetPlayer.name} a subi 2 blocages consécutifs et bénéficie d'une immunité pour ce tour ! Son compteur est réinitialisé.`);
+        db.ref(`quiz_buzz/${currentRoomId}/players/${targetId}`).update({
+          blockedForTourCount: 0,
+          lastBlockedQuestionIndex: -99
+        });
         return;
       }
 
       blockedHistory[targetId] = true;
-      const nextQuestionIndex = (roomData.currentQIndex || 0) + 1;
+      const nextQuestionIndex = currentQ + 1;
+
+      // Calcul du nouveau compteur de blocs consécutifs subis par la cible
+      let newBlockedCount = (lastBlockedQuestion === currentQ - 1) ? targetBlockedForTourCount + 1 : 1;
 
       const updates = {};
       updates[`players/${playerId}/blocksLeft`] = blocksLeft - 1;
@@ -766,7 +776,8 @@
 
       updates[`players/${targetId}/isBlockedThisTour`] = true;
       updates[`players/${targetId}/blockedTargetQuestionIndex`] = nextQuestionIndex;
-      updates[`players/${targetId}/blockedForTourCount`] = targetBlockedForTourCount + 1;
+      updates[`players/${targetId}/blockedForTourCount`] = newBlockedCount;
+      updates[`players/${targetId}/lastBlockedQuestionIndex`] = currentQ;
 
       db.ref(`quiz_buzz/${currentRoomId}`).update(updates).then(() => {
         alert(`BLOCK enregistré ! ${targetPlayer.name} sera bloqué à la question suivante (${nextQuestionIndex + 1}).`);
@@ -803,7 +814,7 @@
       btn.addEventListener('click', handleBuzz);
     }
 
-    // ================= PODIUM =================
+    // ================= PODIUM CORRIGÉ (EX-AEQUO & PAS DE JOUEURS 4e/5e SUR LES MARCHES) =================
     function renderPodiumScreen() {
       showScreen('screen-podium');
 
@@ -829,14 +840,13 @@
       const grid = document.getElementById('podium-display-grid');
       grid.innerHTML = '';
 
+      // Sélection stricte pour chaque marche du podium (uniquement rangs 1, 2 et 3)
       let top1List = rankedPlayers.filter(p => p.rank === 1);
-      let nextRank = top1List.length > 1 ? top1List.length + 1 : 2;
-      let top2List = rankedPlayers.filter(p => p.rank === nextRank);
-      let nextRank3 = nextRank + top2List.length;
-      let top3List = rankedPlayers.filter(p => p.rank >= nextRank3 && p.rank <= nextRank3 + 2);
+      let top2List = rankedPlayers.filter(p => p.rank === 2);
+      let top3List = rankedPlayers.filter(p => p.rank === 3);
 
       const renderPodiumCol = (playerList, placeNum, heightClass, borderCol, bgCol, textCol) => {
-        if (!playerList || playerList.length === 0) return `<div class="flex flex-col items-center"></div>`;
+        if (!playerList || playerList.length === 0) return `<div class="flex flex-col items-center justify-end"></div>`;
         const namesHtml = playerList.map(p => `<span class="text-xs font-bold text-white truncate max-w-[90px]">${p.name}</span><span class="text-[10px] text-amber-400 font-extrabold mb-0.5">${p.score || 0} pts</span>`).join('');
         const avatarsHtml = playerList.map(p => `<img src="${p.avatar}" class="w-10 h-10 rounded-full border-2 ${borderCol} shadow-md mb-1 object-cover">`).join('');
 
