@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-slate-900 select-none">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Défi Chantier Equans - Le Grand Quiz du Leadership</title>
+
+  <!-- Firebase SDK Compat -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <!-- Tailwind CSS & FontAwesome & Canvas Confetti -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            brand: {
+              blue: '#2E6CA4',
+              navy: '#0F172A',
+              dark: '#1E293B',
+              redBlocked: '#F87171',
+              blockedBg: '#FEF2F2'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .buzzer-btn {
+      background: radial-gradient(circle at 35% 35%, #ef4444, #991b1b);
+      box-shadow: 0 14px 0 #7f1d1d, 0 20px 25px rgba(0, 0, 0, 0.5);
+      transition: all 0.08s ease;
+      touch-action: manipulation;
+    }
+    .buzzer-btn:active:not(:disabled) {
+      transform: translateY(10px);
+      box-shadow: 0 4px 0 #7f1d1d, 0 8px 12px rgba(0, 0, 0, 0.4);
+    }
+    .buzzer-btn:disabled {
+      background: radial-gradient(circle at 35% 35%, #64748b, #334155);
+      box-shadow: 0 8px 0 #1e293b, 0 10px 15px rgba(0, 0, 0, 0.3);
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    .desktop-16-9 {
+      width: 98vw;
+      max-width: 1550px;
+      aspect-ratio: 16 / 9;
+      max-height: 94vh;
+    }
+
+    .screen { display: none; }
+    .screen.active { display: flex; }
+  </style>
+</head>
+<body class="h-full bg-slate-900 text-slate-100 font-sans flex flex-col justify-between overflow-x-hidden">
+
+  <!-- Header Global -->
+  <header class="bg-slate-950/90 border-b border-slate-800 px-4 py-2.5 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div class="flex items-center space-x-3">
+        <span class="w-3 h-3 rounded-full bg-[#2E6CA4] animate-ping"></span>
+        <h1 class="font-black text-sm sm:text-base tracking-wider uppercase text-white">Défi Chantier - Le Grand Quiz du Leadership</h1>
+      </div>
+      <div class="flex items-center space-x-3">
+        <div id="session-display" class="text-xs font-mono bg-[#2E6CA4]/20 border border-[#2E6CA4]/40 px-3 py-1 rounded-lg text-[#2E6CA4] font-bold">
+          CODE: ----
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Conteneur Principal -->
+  <main class="flex-grow flex items-center justify-center p-2 sm:p-4 w-full">
+
+    <!-- ================= PAGE DE GARDE / ACCUEIL ================= -->
+    <div id="screen-welcome" class="screen active w-full max-w-6xl mx-auto flex-col justify-center items-center">
+      <div class="w-full bg-slate-800/95 border border-slate-700 rounded-3xl p-4 sm:p-6 shadow-2xl backdrop-blur-md space-y-6">
+        
+        <div class="w-full overflow-hidden rounded-2xl border-2 border-[#2E6CA4]/40 shadow-xl max-h-[300px] lg:max-h-[360px]">
+          <img src="CHAMPION.jpg" alt="Défi Chantier Equans" class="w-full h-full object-contain bg-slate-950">
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          
+          <!-- Mode Joueur -->
+          <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700 space-y-4 flex flex-col justify-between">
+            <div>
+              <h2 class="text-lg font-bold text-[#2E6CA4] flex items-center">
+                <i class="fa-solid fa-mobile-screen mr-2"></i> Rejoindre la Partie (Joueur)
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Entrez votre code partie. En cas de reconnexion, votre profil est restauré.</p>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Code Partie :</label>
+                <input type="text" id="input-room-code" placeholder="Ex: QUIZ1" oninput="onRoomCodeChanged()" class="w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white font-bold uppercase tracking-wider focus:border-[#2E6CA4] outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Votre Prénom / Nom d'équipe :</label>
+                <input type="text" id="input-player-name" placeholder="Ex: Alex" class="w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white font-bold focus:border-[#2E6CA4] outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Choisissez votre Avatar (J1 à J12) :</label>
+                <div id="avatar-selector-grid" class="grid grid-cols-6 gap-2 max-h-36 overflow-y-auto p-1.5 bg-slate-950 rounded-xl border border-slate-800">
+                  <!-- Injecté dynamiquement -->
+                </div>
+              </div>
+            </div>
+
+            <button onclick="joinGameAsPlayer()" class="w-full py-3 bg-[#2E6CA4] hover:bg-sky-600 text-white font-extrabold rounded-xl shadow-lg transition-all mt-2">
+              REJOINDRE / RECONNEXION ➔
+            </button>
+          </div>
+
+          <!-- Mode Animateur -->
+          <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-700 space-y-4 flex flex-col justify-between">
+            <div>
+              <h2 class="text-lg font-bold text-amber-400 flex items-center">
+                <i class="fa-solid fa-desktop mr-2"></i> Console Animateur (Écran 16/9)
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Initialisez la session (remise à zéro globale des scores) et téléversez le fichier CSV.</p>
+            </div>
+
+            <div class="space-y-3">
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Code de la Session :</label>
+                <input type="text" id="input-animator-code" value="QUIZ1" class="w-full p-2.5 bg-slate-800 border border-slate-600 rounded-xl text-white font-bold uppercase tracking-wider focus:border-amber-400 outline-none">
+              </div>
+
+              <div>
+                <label class="block text-xs font-bold text-slate-300 mb-1">Fichier de Questions (.CSV) :</label>
+                <input type="file" id="input-csv-file" accept=".csv" class="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#2E6CA4] file:text-white hover:file:bg-sky-600 cursor-pointer">
+              </div>
+            </div>
+
+            <button onclick="createGameAsAnimator()" class="w-full py-3 bg-slate-700 hover:bg-slate-600 text-amber-400 border border-amber-400/30 font-extrabold rounded-xl shadow-lg transition-all mt-2">
+              INITIALISER LA SESSION ANIMATEUR ➔
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= CONSOLE ANIMATEUR (16/9) ================= -->
+    <div id="screen-animator" class="screen w-full desktop-16-9 flex-col justify-between p-2">
+      <div class="grid grid-cols-4 gap-4 h-full">
+        
+        <!-- Panneau Gauche : Joueurs, Scores et Statuts de Blocage -->
+        <div class="col-span-1 bg-slate-800/90 border border-slate-700 rounded-2xl p-4 flex flex-col justify-between shadow-2xl">
+          <div class="space-y-3 flex-grow flex flex-col overflow-hidden">
+            <div class="border-b border-slate-700 pb-2 flex justify-between items-center">
+              <h2 class="font-extrabold text-sm text-[#2E6CA4] uppercase"><i class="fa-solid fa-users mr-1.5"></i> Joueurs (<span id="anim-player-count">0</span>)</h2>
+              <span class="text-[10px] bg-slate-900 border border-slate-700 px-2 py-0.5 rounded-full text-slate-400 font-mono">Blocs</span>
+            </div>
+
+            <div id="animator-players-list" class="space-y-2 overflow-y-auto flex-grow pr-1">
+              <!-- Injecté par JS -->
+            </div>
+          </div>
+          
+          <!-- Espace réservé épuré (sans boutons superflus) -->
+          <div class="pt-3 border-t border-slate-800 text-center">
+            <span class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Pilote Automatique Séquentiel</span>
+          </div>
+        </div>
+
+        <!-- Zone Centrale / Droite : Question, Buzzer, Réponse, Bouton Unique Séquentiel -->
+        <div class="col-span-3 bg-slate-950/90 border-2 border-slate-800 rounded-2xl p-5 flex flex-col justify-between relative shadow-2xl overflow-hidden">
+          
+          <div class="bg-slate-900 border border-slate-700 rounded-xl p-5 text-left shadow-lg space-y-3">
+            <div class="flex justify-between items-center">
+              <span id="anim-q-number" class="text-xs font-black uppercase text-[#2E6CA4] bg-[#2E6CA4]/10 border border-[#2E6CA4]/30 px-3 py-1 rounded-full">
+                Question 1 / --
+              </span>
+              <span class="text-xs font-semibold text-slate-400">Défi Chantier Equans</span>
+            </div>
+
+            <h2 id="anim-q-text" class="text-2xl lg:text-3xl font-black text-white leading-snug min-h-[80px] flex items-center">
+              En attente du lancement de la question...
+            </h2>
+          </div>
+
+          <div id="anim-buzz-display-area" class="flex-grow flex flex-col justify-center items-center my-2 p-4 bg-slate-900/40 rounded-2xl border border-slate-800/80 relative">
+            
+            <div id="buzz-status-idle" class="text-center space-y-3">
+              <div class="inline-flex p-4 rounded-full bg-[#2E6CA4]/10 border border-[#2E6CA4]/30 text-[#2E6CA4] animate-pulse">
+                <i class="fa-solid fa-hand-pointer text-4xl"></i>
+              </div>
+              <p class="text-sm font-bold text-slate-400" id="anim-buzz-idle-text">En attente du lancement de la question...</p>
+            </div>
+
+            <div id="buzz-status-active" class="hidden text-center space-y-3">
+              <div class="flex items-center justify-center space-x-4">
+                <img id="buzz-winner-avatar" src="J1.jpg" class="w-16 h-16 rounded-2xl border-4 border-amber-400 shadow-2xl object-cover">
+                <div class="text-left">
+                  <span class="text-xs font-bold text-amber-400 uppercase tracking-widest block">⚡ Premier à avoir buzzé !</span>
+                  <h3 id="buzz-winner-name" class="text-2xl font-black text-white">Nom du Joueur</h3>
+                  <span id="buzz-winner-time" class="text-xs font-mono text-slate-400">0.00s</span>
+                </div>
+              </div>
+
+              <div class="flex justify-center space-x-4 pt-1">
+                <button onclick="animatorValidateAnswer(true)" class="px-5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center">
+                  <i class="fa-solid fa-check text-base mr-2"></i> BONNE RÉPONSE (+1 Pt)
+                </button>
+                <button onclick="animatorValidateAnswer(false)" class="px-5 py-2 bg-rose-500 hover:bg-rose-600 text-white font-black text-xs rounded-xl shadow-lg transition-all flex items-center">
+                  <i class="fa-solid fa-xmark text-base mr-2"></i> MAUVAISE RÉPONSE (Bloqué ce tour)
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 text-left space-y-1">
+            <span class="text-xs font-bold text-slate-400 uppercase">Réponse Officielle :</span>
+            <p id="anim-answer-text" class="text-xl lg:text-2xl font-black text-emerald-400 blur-md select-none transition-all">
+              ••••••••••••••••••••••••
+            </p>
+          </div>
+
+          <div class="pt-2">
+            <button id="main-action-btn" onclick="handleMainAnimatorAction()" class="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-xl shadow-xl transition-all flex items-center justify-center space-x-2">
+              <span id="main-action-text">LANCER LA QUESTION</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= INTERFACE JOUEUR (SMARTPHONE) ================= -->
+    <div id="screen-player" class="screen w-full max-w-md mx-auto flex-col justify-between space-y-4">
+      
+      <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-3 flex items-center justify-between shadow-lg">
+        <div class="flex items-center space-x-3">
+          <img id="player-avatar-hud" src="J1.jpg" class="w-12 h-12 rounded-xl border-2 border-[#2E6CA4] object-cover">
+          <div>
+            <h3 id="player-name-hud" class="font-extrabold text-sm text-white">Joueur</h3>
+            <span id="player-status-badge" class="text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold">
+              En Jeu
+            </span>
+          </div>
+        </div>
+        <div class="text-right">
+          <span class="text-[10px] text-slate-400 block">Score</span>
+          <span id="player-score-hud" class="text-xl font-black text-amber-400">0</span>
+        </div>
+      </div>
+
+      <div id="player-blocked-banner" class="hidden bg-brand-blockedBg border-2 border-brand-redBlocked rounded-2xl p-3 text-center shadow-lg animate-bounce">
+        <div class="flex justify-center items-center space-x-2 text-brand-redBlocked font-black text-sm">
+          <i class="fa-solid fa-lock text-base"></i>
+          <span id="player-blocked-text">VOUS ÊTES BLOQUÉ POUR CE TOUR</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-800/80 border border-slate-700 rounded-2xl p-4 text-left space-y-1 shadow-md">
+        <span id="player-q-num" class="text-[10px] font-bold text-[#2E6CA4] uppercase">Question en cours</span>
+        <p id="player-q-text" class="text-sm font-bold text-slate-100 leading-snug">Attendez que l'animateur lance la question...</p>
+      </div>
+
+      <!-- PANNEAU DE BLOCAGE INTER-JOUEURS -->
+      <div class="bg-slate-800/90 border border-slate-700 rounded-2xl p-3 space-y-2 shadow-md">
+        <div class="flex justify-between items-center text-xs">
+          <span class="font-bold text-slate-300"><i class="fa-solid fa-shield-halved mr-1 text-rose-400"></i> Vos BLOCKs : <span id="player-blocks-left" class="text-amber-400 font-black text-sm">2</span> / 2</span>
+          <span class="text-[10px] text-slate-400">Bloquer un adversaire</span>
+        </div>
+        <div class="flex space-x-2">
+          <select id="block-target-select" class="flex-grow p-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white font-bold outline-none">
+            <option value="">-- Choisir un joueur à bloquer --</option>
+          </select>
+          <button onclick="sendPlayerBlock()" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs rounded-xl shadow transition-all">
+            BLOQUER
+          </button>
+        </div>
+      </div>
+
+      <div class="flex-grow flex flex-col items-center justify-center py-2">
+        <button id="main-buzzer-btn" class="buzzer-btn w-48 h-48 rounded-full flex flex-col items-center justify-center text-white font-black text-2xl uppercase tracking-wider relative group">
+          <i class="fa-solid fa-bolt text-4xl mb-1 group-active:scale-95 transition-transform"></i>
+          <span>BUZZ !</span>
+        </button>
+      </div>
+
+      <div id="player-buzz-feedback" class="text-center min-h-[20px]">
+        <span id="player-feedback-msg" class="text-xs font-bold text-slate-400">Appuyez pour répondre dès que la question est lancée !</span>
+      </div>
+
+    </div>
+
+    <!-- ================= PAGE DU PODIUM ================= -->
+    <div id="screen-podium" class="screen w-full max-w-5xl mx-auto flex-col justify-between p-4 text-center space-y-4">
+      
+      <div class="space-y-2">
+        <h2 class="text-2xl sm:text-3xl font-black text-amber-400 tracking-wider">🏆 GRAND PODIUM DES CHAMPIONS 🏆</h2>
+        <p class="text-xs text-slate-300">Classement officiel avec gestion des ex-aequo.</p>
+      </div>
+
+      <div id="podium-display-grid" class="grid grid-cols-3 gap-2 sm:gap-4 items-end max-w-3xl mx-auto w-full pt-4 min-h-[240px]">
+        <!-- Injecté dynamiquement -->
+      </div>
+
+      <div class="max-w-2xl mx-auto w-full bg-slate-800/90 border border-slate-700 rounded-2xl p-3 shadow-xl max-h-44 overflow-y-auto">
+        <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">Classement Général</h3>
+        <div id="full-leaderboard-list" class="space-y-1 text-xs">
+          <!-- Injecté dynamiquement -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <footer class="bg-slate-950/80 border-t border-slate-800 text-center py-2 text-[11px] text-slate-500">
+    Formation Management & Performance Chantier © 2026
+  </footer>
+
+  <script>
+    // Configuration Firebase
+    const firebaseConfig = {
+      apiKey: "AIzaSyCAz1_Ko1zNmW40sbtaOjnGpGh-P_7aBKw",
+      authDomain: "dilemme-du-prisonnier.firebaseapp.com",
+      databaseURL: "https://dilemme-du-prisonnier-default-rtdb.firebaseio.com",
+      projectId: "dilemme-du-prisonnier",
+      storageBucket: "dilemme-du-prisonnier.firebasestorage.app",
+      messagingSenderId: "953296223832",
+      appId: "1:953296223832:web:1600d4d7210dba6184942d"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let currentRoomId = "";
+    let playerId = localStorage.getItem('quiz_playerId') || "p_" + Math.random().toString(36).substring(2, 7);
+    localStorage.setItem('quiz_playerId', playerId);
+
+    let isAnimator = false;
+    let selectedAvatar = "J1.jpg";
+    let roomData = {};
+    let questionsList = [];
+    let hasVibratedForCurrentBuzz = false;
+    let podiumConfettiTriggered = false;
+
+    function renderAvatarSelector() {
+      const grid = document.getElementById('avatar-selector-grid');
+      const players = roomData.players || {};
+      const takenMap = {};
+
+      Object.values(players).forEach(p => {
+        if (p.id !== playerId) takenMap[p.avatar] = p.name;
+      });
+
+      grid.innerHTML = '';
+      for (let i = 1; i <= 12; i++) {
+        const avName = `J${i}.jpg`;
+        const isTaken = !!takenMap[avName];
+        const isSelected = (selectedAvatar === avName);
+
+        let borderStyle = "border-transparent opacity-80 hover:opacity-100";
+        if (isSelected && !isTaken) borderStyle = "border-[#2E6CA4] scale-105 shadow-md";
+        if (isTaken) borderStyle = "border-rose-500/50 opacity-40 cursor-not-allowed";
+
+        grid.innerHTML += `
+          <div onclick="${isTaken ? '' : `selectAvatar('${avName}')`}" class="cursor-pointer border-2 ${borderStyle} rounded-xl overflow-hidden transition-all relative">
+            <img src="${avName}" class="w-full h-10 object-cover">
+            ${isTaken ? `<div class="absolute inset-0 bg-slate-950/80 flex items-center justify-center text-[9px] font-extrabold text-rose-400">Pris</div>` : ''}
+          </div>
+        `;
+      }
+    }
+
+    function selectAvatar(av) {
+      selectedAvatar = av;
+      renderAvatarSelector();
+    }
+
+    function onRoomCodeChanged() {
+      const code = document.getElementById('input-room-code').value.trim().toUpperCase();
+      if (code) {
+        db.ref(`quiz_buzz/${code}`).once('value').then(snap => {
+          roomData = snap.val() || {};
+          renderAvatarSelector();
+        });
+      }
+    }
+
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    function joinGameAsPlayer() {
+      const code = document.getElementById('input-room-code').value.trim().toUpperCase();
+      const name = document.getElementById('input-player-name').value.trim();
+
+      if (!code || !name) { alert("Saisissez le code partie et votre nom."); return; }
+      currentRoomId = code;
+      document.getElementById('session-display').innerText = "CODE: " + code;
+
+      db.ref(`quiz_buzz/${code}`).once('value').then(snap => {
+        if (!snap.val()) { alert("Session introuvable. Demandez à l'animateur d'initialiser la partie."); return; }
+
+        const roomVal = snap.val();
+        const players = roomVal.players || {};
+        const existingPlayer = Object.values(players).find(p => p.name.toLowerCase() === name.toLowerCase());
+
+        if (existingPlayer) {
+          playerId = existingPlayer.id;
+          localStorage.setItem('quiz_playerId', playerId);
+          selectedAvatar = existingPlayer.avatar;
+        } else {
+          const isAvatarTaken = Object.values(players).some(p => p.avatar === selectedAvatar && p.id !== playerId);
+          if (isAvatarTaken) {
+            alert("Cet avatar est déjà sélectionné. Choisissez-en un autre.");
+            return;
+          }
+        }
+
+        const currentData = existingPlayer || {
+          id: playerId,
+          name: name,
+          avatar: selectedAvatar,
+          score: 0,
+          blocksLeft: 2,
+          blockedHistory: {},
+          blockedForTourCount: 0,
+          blockedTargetQuestionIndex: -1,
+          wrongAnswerQuestionIndex: -1,
+          isBlockedThisTour: false
+        };
+
+        db.ref(`quiz_buzz/${code}/players/${playerId}`).set(currentData).then(() => {
+          listenToRoom();
+          showScreen('screen-player');
+          bindBuzzerEvents();
+        });
+      });
+    }
+
+    function createGameAsAnimator() {
+      const code = document.getElementById('input-animator-code').value.trim().toUpperCase() || "QUIZ1";
+      const fileInput = document.getElementById('input-csv-file');
+
+      if (fileInput.files.length === 0) {
+        alert("Veuillez charger le fichier CSV des questions.");
+        return;
+      }
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        parseCSVQuestions(e.target.result);
+        currentRoomId = code;
+        isAnimator = true;
+        document.getElementById('session-display').innerText = "CODE: " + code;
+
+        db.ref(`quiz_buzz/${code}`).set({
+          status: 'in_progress',
+          currentQIndex: 0,
+          gameState: 'ready',
+          activeBuzzer: null,
+          players: {}
+        }).then(() => {
+          listenToRoom();
+          showScreen('screen-animator');
+        });
+      };
+      reader.readAsText(file);
+    }
+
+    function parseCSVQuestions(text) {
+      const lines = text.split('\n');
+      questionsList = [];
+      lines.forEach((line, idx) => {
+        if (!line.trim()) return;
+        const lineStr = line.trim();
+        let cols = lineStr.includes(';') ? lineStr.split(';') : lineStr.split(',');
+        if (cols.length >= 2) {
+          if (idx === 0 && (cols[0].toLowerCase().includes('question') || cols[0].toLowerCase().includes('questions'))) return;
+          questionsList.push({
+            question: cols[0] ? cols[0].trim() : '',
+            answer: cols[1] ? cols[1].trim() : ''
+          });
+        }
+      });
+    }
+
+    function listenToRoom() {
+      if (!currentRoomId) return;
+      db.ref(`quiz_buzz/${currentRoomId}`).on('value', snap => {
+        roomData = snap.val() || {};
+        renderAvatarSelector();
+
+        if (isAnimator) updateAnimatorUI();
+        else updatePlayerUI();
+      });
+    }
+
+    // ================= CONSOLE ANIMATEUR =================
+    function updateAnimatorUI() {
+      const players = roomData.players || {};
+      const entries = Object.values(players);
+
+      document.getElementById('anim-player-count').innerText = entries.length;
+
+      const listDiv = document.getElementById('animator-players-list');
+      const qIndex = roomData.currentQIndex || 0;
+
+      listDiv.innerHTML = entries.map(p => {
+        const playerScore = (p.score !== undefined) ? Number(p.score) : 0;
+        const isBlockedByPlayer = (p.blockedTargetQuestionIndex === qIndex && p.isBlockedThisTour);
+        const isBlockedByWrongBuzz = (p.wrongAnswerQuestionIndex === qIndex);
+        const isBlocked = isBlockedByPlayer || isBlockedByWrongBuzz;
+        
+        const bgClass = isBlocked ? 'bg-brand-blockedBg border-brand-redBlocked' : 'bg-slate-900 border-slate-700';
+        let blockLabel = isBlockedByPlayer ? "Bloqué (Joueurs)" : (isBlockedByWrongBuzz ? "Bloqué (Erreur)" : "En jeu");
+
+        return `
+          <div class="${bgClass} border rounded-xl p-2.5 flex items-center justify-between transition-all shadow-sm">
+            <div class="flex items-center space-x-2">
+              <img src="${p.avatar}" class="w-8 h-8 rounded-lg object-cover border border-slate-600">
+              <div>
+                <h4 class="text-xs font-bold text-white leading-none">${p.name}</h4>
+                <div class="flex items-center space-x-2 mt-1">
+                  <span class="text-[11px] text-amber-400 font-extrabold">${playerScore} Pt${playerScore > 1 ? 's' : ''}</span>
+                  <span class="text-[9px] font-bold px-1.5 py-0.2 rounded ${isBlocked ? 'bg-rose-500 text-white' : 'bg-emerald-500/20 text-emerald-400'}">${blockLabel}</span>
+                </div>
+              </div>
+            </div>
+            <span class="text-xs font-mono font-bold text-slate-300 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+              ${p.blocksLeft !== undefined ? p.blocksLeft : 2} 🛡️
+            </span>
+          </div>
+        `;
+      }).join('') || '<div class="text-xs text-slate-500 text-center py-4">Aucun joueur connecté.</div>';
+
+      const gameState = roomData.gameState || 'ready';
+
+      if (questionsList.length > 0 && qIndex < questionsList.length) {
+        const q = questionsList[qIndex];
+        document.getElementById('anim-q-number').innerText = `Question ${qIndex + 1} / ${questionsList.length}`;
+        document.getElementById('anim-q-text').innerText = (gameState !== 'ready') ? q.question : "En attente du lancement de la question...";
+        document.getElementById('anim-answer-text').innerText = q.answer;
+      }
+
+      const answerEl = document.getElementById('anim-answer-text');
+      if (gameState === 'answer_shown') answerEl.classList.remove('blur-md');
+      else answerEl.classList.add('blur-md');
+
+      const activeBuzz = roomData.activeBuzzer;
+      const idleBox = document.getElementById('buzz-status-idle');
+      const activeBox = document.getElementById('buzz-status-active');
+
+      if (activeBuzz && players[activeBuzz.playerId]) {
+        const winner = players[activeBuzz.playerId];
+        idleBox.classList.add('hidden');
+        activeBox.classList.remove('hidden');
+
+        document.getElementById('buzz-winner-avatar').src = winner.avatar;
+        document.getElementById('buzz-winner-name').innerText = winner.name;
+        document.getElementById('buzz-winner-time').innerText = `Buzz à : ${new Date(activeBuzz.timestamp).toLocaleTimeString()}`;
+      } else {
+        idleBox.classList.remove('hidden');
+        activeBox.classList.add('hidden');
+        document.getElementById('anim-buzz-idle-text').innerText = (gameState !== 'ready') ? "Buzzer activé ! En attente du premier buzz..." : "En attente du lancement de la question...";
+      }
+
+      const mainBtn = document.getElementById('main-action-btn');
+      const isLastQuestion = (qIndex + 1 >= questionsList.length);
+
+      if (gameState === 'ready') {
+        mainBtn.className = "w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-base rounded-xl shadow-xl transition-all flex items-center justify-center space-x-2";
+        mainBtn.innerHTML = `<i class="fa-solid fa-play mr-2"></i><span>LANCER LA QUESTION</span>`;
+      } else if (gameState === 'question_shown') {
+        mainBtn.className = "w-full py-4 bg-[#2E6CA4] hover:bg-sky-600 text-white font-black text-base rounded-xl shadow-xl transition-all flex items-center justify-center space-x-2";
+        mainBtn.innerHTML = `<i class="fa-solid fa-lightbulb mr-2"></i><span>AFFICHER LA RÉPONSE</span>`;
+      } else if (gameState === 'answer_shown') {
+        if (isLastQuestion) {
+          mainBtn.className = "w-full py-4 bg-rose-600 hover:bg-rose-500 text-white font-black text-base rounded-xl shadow-xl transition-all flex items-center justify-center space-x-2";
+          mainBtn.innerHTML = `<i class="fa-solid fa-trophy mr-2"></i><span>CLÔTURER LE QUIZ & AFFICHER LE PODIUM</span>`;
+        } else {
+          mainBtn.className = "w-full py-4 bg-amber-600 hover:bg-amber-500 text-white font-black text-base rounded-xl shadow-xl transition-all flex items-center justify-center space-x-2";
+          mainBtn.innerHTML = `<i class="fa-solid fa-forward mr-2"></i><span>QUESTION SUIVANTE</span>`;
+        }
+      }
+
+      if (roomData.status === 'finished') {
+        renderPodiumScreen();
+      }
+    }
+
+    function handleMainAnimatorAction() {
+      const gameState = roomData.gameState || 'ready';
+      const qIndex = roomData.currentQIndex || 0;
+      const isLastQuestion = (qIndex + 1 >= questionsList.length);
+
+      if (gameState === 'ready') {
+        db.ref(`quiz_buzz/${currentRoomId}`).update({ gameState: 'question_shown' });
+      } else if (gameState === 'question_shown') {
+        db.ref(`quiz_buzz/${currentRoomId}`).update({ gameState: 'answer_shown' });
+      } else if (gameState === 'answer_shown') {
+        if (isLastQuestion) {
+          db.ref(`quiz_buzz/${currentRoomId}`).update({ status: 'finished' });
+        } else {
+          db.ref(`quiz_buzz/${currentRoomId}`).update({
+            currentQIndex: qIndex + 1,
+            gameState: 'ready',
+            activeBuzzer: null
+          });
+        }
+      }
+    }
+
+    function animatorResetBuzzer() {
+      db.ref(`quiz_buzz/${currentRoomId}`).update({ activeBuzzer: null });
+    }
+
+    function animatorValidateAnswer(isCorrect) {
+      const activeBuzz = roomData.activeBuzzer;
+      if (!activeBuzz) return;
+
+      const pId = activeBuzz.playerId;
+      const player = (roomData.players || {})[pId];
+      const qIndex = roomData.currentQIndex || 0;
+
+      if (player) {
+        if (isCorrect) {
+          const currentScore = (player.score !== undefined) ? Number(player.score) : 0;
+          db.ref(`quiz_buzz/${currentRoomId}/players/${pId}`).update({
+            score: currentScore + 1
+          });
+        } else {
+          db.ref(`quiz_buzz/${currentRoomId}/players/${pId}`).update({
+            wrongAnswerQuestionIndex: qIndex
+          });
+        }
+      }
+
+      animatorResetBuzzer();
+    }
+
+    // ================= LOGIQUE JOUEUR =================
+    function updatePlayerUI() {
+      const players = roomData.players || {};
+      const me = players[playerId];
+      if (!me) return;
+
+      document.getElementById('player-avatar-hud').src = me.avatar;
+      document.getElementById('player-name-hud').innerText = me.name;
+      document.getElementById('player-score-hud').innerText = (me.score !== undefined) ? me.score : 0;
+      document.getElementById('player-blocks-left').innerText = (me.blocksLeft !== undefined) ? me.blocksLeft : 2;
+
+      const selectEl = document.getElementById('block-target-select');
+      const currentVal = selectEl.value;
+      selectEl.innerHTML = '<option value="">-- Choisir un joueur à bloquer --</option>';
+      Object.values(players).forEach(p => {
+        if (p.id !== playerId) {
+          selectEl.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+        }
+      });
+      selectEl.value = currentVal;
+
+      const qIndex = roomData.currentQIndex || 0;
+      const gameState = roomData.gameState || 'ready';
+      const isQActive = (gameState !== 'ready');
+
+      const isBlockedByPlayers = (me.blockedTargetQuestionIndex === qIndex && me.isBlockedThisTour);
+      const isBlockedByWrongBuzz = (me.wrongAnswerQuestionIndex === qIndex);
+      const isBlocked = isBlockedByPlayers || isBlockedByWrongBuzz;
+
+      const buzzerBtn = document.getElementById('main-buzzer-btn');
+      const blockedBanner = document.getElementById('player-blocked-banner');
+      const blockedText = document.getElementById('player-blocked-text');
+      const statusBadge = document.getElementById('player-status-badge');
+      const feedbackMsg = document.getElementById('player-feedback-msg');
+
+      if (isBlocked) {
+        blockedBanner.classList.remove('hidden');
+        blockedText.innerText = isBlockedByWrongBuzz ? "MAUVAISE RÉPONSE : BLOQUÉ POUR CE TOUR" : "VOUS ÊTES BLOQUÉ PAR UN JOUEUR";
+        buzzerBtn.disabled = true;
+        statusBadge.className = "text-[10px] bg-rose-500/20 text-rose-400 border border-rose-500/40 px-2 py-0.5 rounded-full font-bold";
+        statusBadge.innerText = "Bloqué";
+      } else {
+        blockedBanner.classList.add('hidden');
+        buzzerBtn.disabled = !isQActive || (roomData.activeBuzzer !== null && roomData.activeBuzzer !== undefined);
+        statusBadge.className = "text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full font-bold";
+        statusBadge.innerText = "En Jeu";
+      }
+
+      document.getElementById('player-q-num').innerText = `Question ${qIndex + 1}`;
+      if (questionsList.length > 0 && qIndex < questionsList.length && isQActive) {
+        document.getElementById('player-q-text').innerText = questionsList[qIndex].question;
+      } else {
+        document.getElementById('player-q-text').innerText = "Attendez que l'animateur lance la question...";
+      }
+
+      const activeBuzz = roomData.activeBuzzer;
+      if (activeBuzz && activeBuzz.playerId === playerId) {
+        feedbackMsg.innerText = "⚡ VOUS AVEZ BUZZÉ EN PREMIER !";
+        feedbackMsg.className = "text-xs font-black text-amber-400 animate-pulse";
+        if (!hasVibratedForCurrentBuzz) {
+          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+          hasVibratedForCurrentBuzz = true;
+        }
+      } else {
+        if (!activeBuzz) hasVibratedForCurrentBuzz = false;
+        feedbackMsg.innerText = isQActive ? "Appuyez sur BUZZ dès que vous avez la réponse !" : "Buzzer en attente...";
+        feedbackMsg.className = "text-xs font-bold text-slate-400";
+      }
+
+      if (roomData.status === 'finished') {
+        renderPodiumScreen();
+      }
+    }
+
+    // Action d'envoi d'un BLOCK ciblant la question suivante
+    function sendPlayerBlock() {
+      const targetId = document.getElementById('block-target-select').value;
+      if (!targetId) { alert("Veuillez sélectionner un joueur à bloquer."); return; }
+
+      const players = roomData.players || {};
+      const me = players[playerId];
+      const targetPlayer = players[targetId];
+
+      if (!targetPlayer) return;
+
+      const blocksLeft = (me.blocksLeft !== undefined) ? me.blocksLeft : 2;
+      if (blocksLeft <= 0) {
+        alert("Vous avez épuisé vos 2 BLOCKs pour cette partie.");
+        return;
+      }
+
+      const blockedHistory = me.blockedHistory || {};
+      if (blockedHistory[targetId]) {
+        alert("Vous avez déjà bloqué ce joueur dans cette partie. Choisissez un autre adversaire.");
+        return;
+      }
+
+      const targetBlockedForTourCount = targetPlayer.blockedForTourCount || 0;
+      if (targetBlockedForTourCount >= 2) {
+        alert(`${targetPlayer.name} a été bloqué pendant 2 tours consécutifs et est temporairement immunisé !`);
+        return;
+      }
+
+      blockedHistory[targetId] = true;
+      const nextQuestionIndex = (roomData.currentQIndex || 0) + 1;
+
+      const updates = {};
+      updates[`players/${playerId}/blocksLeft`] = blocksLeft - 1;
+      updates[`players/${playerId}/blockedHistory`] = blockedHistory;
+
+      updates[`players/${targetId}/isBlockedThisTour`] = true;
+      updates[`players/${targetId}/blockedTargetQuestionIndex`] = nextQuestionIndex;
+      updates[`players/${targetId}/blockedForTourCount`] = targetBlockedForTourCount + 1;
+
+      db.ref(`quiz_buzz/${currentRoomId}`).update(updates).then(() => {
+        alert(`BLOCK enregistré ! ${targetPlayer.name} sera bloqué à la question suivante (${nextQuestionIndex + 1}).`);
+      });
+    }
+
+    function bindBuzzerEvents() {
+      const btn = document.getElementById('main-buzzer-btn');
+      
+      const handleBuzz = (e) => {
+        e.preventDefault();
+        const players = roomData.players || {};
+        const me = players[playerId];
+        const qIndex = roomData.currentQIndex || 0;
+        const isBlockedByPlayers = (me.blockedTargetQuestionIndex === qIndex && me.isBlockedThisTour);
+        const isBlockedByWrongBuzz = (me.wrongAnswerQuestionIndex === qIndex);
+        const isBlocked = isBlockedByPlayers || isBlockedByWrongBuzz;
+        const gameState = roomData.gameState || 'ready';
+
+        if (!me || isBlocked || gameState === 'ready' || roomData.activeBuzzer) return;
+
+        db.ref(`quiz_buzz/${currentRoomId}/activeBuzzer`).transaction(current => {
+          if (current === null) {
+            return {
+              playerId: playerId,
+              timestamp: firebase.database.ServerValue.TIMESTAMP
+            };
+          }
+          return;
+        });
+      };
+
+      btn.addEventListener('touchstart', handleBuzz, { passive: false });
+      btn.addEventListener('click', handleBuzz);
+    }
+
+    // ================= PODIUM =================
+    function renderPodiumScreen() {
+      showScreen('screen-podium');
+
+      const players = roomData.players || {};
+      let sorted = Object.values(players);
+
+      sorted.sort((a, b) => {
+        const scoreA = (a.score !== undefined) ? Number(a.score) : 0;
+        const scoreB = (b.score !== undefined) ? Number(b.score) : 0;
+        if (scoreB !== scoreA) return scoreB - scoreA;
+        return a.name.localeCompare(b.name);
+      });
+
+      let rankedPlayers = [];
+      let currentRank = 1;
+      for (let i = 0; i < sorted.length; i++) {
+        if (i > 0 && sorted[i].score !== sorted[i - 1].score) {
+          currentRank = i + 1;
+        }
+        rankedPlayers.push({ ...sorted[i], rank: currentRank });
+      }
+
+      const grid = document.getElementById('podium-display-grid');
+      grid.innerHTML = '';
+
+      let top1List = rankedPlayers.filter(p => p.rank === 1);
+      let nextRank = top1List.length > 1 ? top1List.length + 1 : 2;
+      let top2List = rankedPlayers.filter(p => p.rank === nextRank);
+      let nextRank3 = nextRank + top2List.length;
+      let top3List = rankedPlayers.filter(p => p.rank >= nextRank3 && p.rank <= nextRank3 + 2);
+
+      const renderPodiumCol = (playerList, placeNum, heightClass, borderCol, bgCol, textCol) => {
+        if (!playerList || playerList.length === 0) return `<div class="flex flex-col items-center"></div>`;
+        const namesHtml = playerList.map(p => `<span class="text-xs font-bold text-white truncate max-w-[90px]">${p.name}</span><span class="text-[10px] text-amber-400 font-extrabold mb-0.5">${p.score || 0} pts</span>`).join('');
+        const avatarsHtml = playerList.map(p => `<img src="${p.avatar}" class="w-10 h-10 rounded-full border-2 ${borderCol} shadow-md mb-1 object-cover">`).join('');
+
+        return `
+          <div class="flex flex-col items-center justify-end">
+            ${placeNum === 1 ? `<i class="fa-solid fa-crown text-amber-400 text-base animate-bounce mb-1"></i>` : ''}
+            <div class="flex space-x-1 mb-1">${avatarsHtml}</div>
+            <div class="text-center mb-1">${namesHtml}</div>
+            <div class="w-full ${bgCol} ${heightClass} rounded-t-2xl flex items-center justify-center border-t-4 ${borderCol} shadow-lg">
+              <span class="text-2xl font-black ${textCol}">${placeNum}</span>
+            </div>
+          </div>
+        `;
+      };
+
+      grid.innerHTML += renderPodiumCol(top2List, 2, 'h-28', 'border-slate-300', 'bg-slate-700', 'text-slate-300');
+      grid.innerHTML += renderPodiumCol(top1List, 1, 'h-40', 'border-amber-300', 'bg-amber-500', 'text-slate-950');
+      grid.innerHTML += renderPodiumCol(top3List, 3, 'h-20', 'border-amber-700', 'bg-amber-900/80', 'text-amber-600');
+
+      const fullList = document.getElementById('full-leaderboard-list');
+      fullList.innerHTML = rankedPlayers.map((p) => {
+        let rankDisplay = `${p.rank}e`;
+        if (p.rank === 1) rankDisplay = "1er";
+        return `
+          <div class="flex justify-between items-center bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
+            <div class="flex items-center space-x-2">
+              <span class="font-mono text-amber-400 font-bold">${rankDisplay}</span>
+              <img src="${p.avatar}" class="w-6 h-6 rounded-full object-cover">
+              <span class="font-bold text-white">${p.name}</span>
+            </div>
+            <span class="font-extrabold text-amber-400">${p.score || 0} Pts</span>
+          </div>
+        `;
+      }).join('');
+
+      if (!podiumConfettiTriggered) {
+        podiumConfettiTriggered = true;
+        const duration = 5 * 1000;
+        const end = Date.now() + duration;
+
+        (function frame() {
+          confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 } });
+          confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 } });
+          if (Date.now() < end) requestAnimationFrame(frame);
+        }());
+      }
+    }
+
+    window.onload = function() {
+      renderAvatarSelector();
+    };
+  </script>
+</body>
+</html>
